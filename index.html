@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>High Noon Classic - نسخة سفاري الكاملة</title>
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(circle at 50% 34%, rgba(255, 200, 80, 0.45), transparent 42%),
+        linear-gradient(to bottom, #f77f00 0%, #d62828 52%, #3d140c 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* الشريط العلوي: العملات والحالة */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.55);
+      border-bottom: 1px solid rgba(255, 215, 110, 0.3);
+      font-size: 13px;
+      z-index: 10;
+    }
+    .currencies { display: flex; gap: 10px; font-weight: bold; }
+    .gold { color: #ffd166; }
+    .wampum { color: #72efdd; }
+
+    /* أشرطة الصحة والذخيرة */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.35);
+      gap: 10px;
+      z-index: 10;
+    }
+    .bar-wrap { flex: 1; }
+    .bar-label { font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .bar { height: 10px; background: rgba(255,255,255,0.2); border-radius: 6px; overflow: hidden; }
+    .fill { height: 100%; width: 100%; transition: width 0.2s; }
+    #playerHpBar { background: #2ecc71; }
+    #enemyHpBar { background: #e74c3c; }
+
+    /* ساحة المبارزة */
+    #arena {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* عناصر خلفية الغرب الأمريكي */
+    .desert-ground {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 28%;
+      background: linear-gradient(to bottom, #8c3b19, #4a1c0a);
+      border-top: 2px solid rgba(255, 180, 90, 0.35);
+    }
+    .cactus {
+      position: absolute;
+      bottom: 24%;
+      font-size: 34px;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .cactus.left { left: 10%; }
+    .cactus.right { right: 10%; }
+
+    /* الخصم مع منطقة الرأس والجسد */
+    #enemyBox {
+      position: absolute;
+      bottom: 24%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 170px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      z-index: 4;
+      transition: transform 0.1s;
+    }
+    #enemyHat {
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: -6px;
+      z-index: 5;
+    }
+    #enemyHead {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #2b1d16;
+      border: 2px solid #ffd166;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      z-index: 4;
+    }
+    #enemyBody {
+      width: 86px;
+      height: 82px;
+      margin-top: -4px;
+      border-radius: 14px 14px 6px 6px;
+      background: #1d1613;
+      border: 2px solid rgba(255, 209, 102, 0.6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #ffd166;
+    }
+    .lasso-badge {
+      margin-top: 4px;
+      background: #ffb703;
+      color: #111;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: bold;
+      display: none;
+    }
+
+    /* تأثير الفلفل الحار على الشاشة */
+    #pepperOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 69, 0, 0.28);
+      pointer-events: none;
+      display: none;
+      z-index: 8;
+    }
+
+    #statusBanner {
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.72);
+      border: 1px solid rgba(255, 209, 102, 0.45);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      width: 90%;
+      z-index: 7;
+    }
+
+    #floatingMsg {
+      position: absolute;
+      top: 26%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffd166;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.85);
+      pointer-events: none;
+      z-index: 9;
+    }
+
+    /* مؤشر التصويب */
+    #crosshair {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border: 2.5px solid #fff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+      box-shadow: 0 0 12px rgba(0,0,0,0.7);
+    }
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 6px; height: 6px;
+      background: #ff2e2e;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* أزرار الأدوات التكتيكية */
+    .gadgets-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 10;
+    }
+    .gadget-btn {
+      background: rgba(255, 183, 3, 0.2);
+      color: #ffd166;
+      border: 1px solid #ffd166;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    /* الشريط السفلي للتحكم والمتجر */
+    .bottom-bar {
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.65);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      z-index: 10;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #ffb703;
+      color: #111;
+    }
+    button.secondary { background: #e9ecef; color: #111; }
+    button.danger { background: #ef4444; color: #fff; }
+
+    /* نوافذ المتجر وقائمة الأعداء */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      padding: 16px;
+      overflow-y: auto;
+      z-index: 30;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .item-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 209, 102, 0.35);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .item-title { font-weight: bold; font-size: 14px; color: #ffd166; }
+    .item-desc { font-size: 11px; color: #ddd; margin-top: 2px; }
+
+    .shake { animation: shakeAnim 0.22s infinite; }
+    @keyframes shakeAnim {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(-7px, 4px); }
+      50% { transform: translate(7px, -4px); }
+      75% { transform: translate(-5px, -5px); }
+      100% { transform: translate(0, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="currencies">
+      <span class="gold">ذهب: <span id="goldVal">120</span></span>
+      <span class="wampum">وامبوم: <span id="wampumVal">15</span></span>
+    </div>
+    <div>
+      <button class="secondary" id="openShopBtn">المتجر</button>
+      <button class="secondary" id="openShitlistBtn">قائمة الأعداء</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="bar-wrap">
+      <div class="bar-label">
+        <span>أنت (<span id="equippedOutfitName">معطف المبتدئ</span>)</span>
+        <span id="playerHpText">100</span>
+      </div>
+      <div class="bar"><div id="playerHpBar" class="fill"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-label">
+        <span><span id="enemyName">الخصم</span></span>
+        <span id="enemyHpText">100</span>
+      </div>
+      <div class="bar"><div id="enemyHpBar" class="fill"></div></div>
+    </div>
+  </div>
+
+  <div id="arena">
+    <div id="pepperOverlay"></div>
+    <div id="statusBanner">اضغط "تفعيل الحركة والصوت" للبدء</div>
+    <div id="floatingMsg"></div>
+
+    <div class="cactus left">🌵</div>
+    <div class="cactus right">🌵</div>
+
+    <div id="enemyBox">
+      <div id="enemyHat">🤠</div>
+      <div id="enemyHead">🕶️</div>
+      <div id="enemyBody">
+        <span id="equippedGunBadge">مسدس صدئ</span>
+        <span id="lassoBadge" class="lasso-badge">مقيّد باللاسو!</span>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+  </div>
+
+  <div class="gadgets-bar">
+    <button class="gadget-btn" id="pepperBtn">🌶️ فلفل (<span id="pepperCount">2</span>)</button>
+    <button class="gadget-btn" id="dynamiteBtn">🧨 ديناميت (<span id="dynamiteCount">1</span>)</button>
+    <button class="gadget-btn" id="lassoBtn">🪢 لاسو (<span id="lassoCount">1</span>)</button>
+  </div>
+
+  <div class="bottom-bar">
+    <button id="enableMotionBtn">تفعيل الحركة والصوت</button>
+    <div>الذخيرة: <strong id="ammoText">6 / 6</strong></div>
+    <button id="restartBtn">مبارزة جديدة</button>
+  </div>
+
+  <!-- نافذة المتجر -->
+  <div class="modal" id="shopModal">
+    <div class="modal-header">
+      <h3>متجر البلدة (أسلحة - ملابس - أدوات)</h3>
+      <button class="secondary" onclick="closeModals()">إغلاق</button>
+    </div>
+    <div id="shopList"></div>
+    <div style="margin-top: 12px; text-align: center;">
+      <button class="danger" id="resetSaveBtn">تصفير الحفظ والعودة للبداية</button>
+    </div>
+  </div>
+
+  <!-- نافذة قائمة الأعداء (Shitlist) -->
+  <div class="modal" id="shitlistModal">
+    <div class="modal-header">
+      <h3>قائمة الأعداء (Shitlist)</h3>
+      <button class="secondary" onclick="closeModals()">إغلاق</button>
+    </div>
+    <div id="shitlistContainer"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "high_noon_safari_save_v1";
+
+    // --- نظام الأصوات التوليدية (Web Audio API) ---
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) audioCtx = new Ctx();
+      }
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if (type === "draw") {
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(640, now + 0.14);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.16);
+      } else if (type === "shoot") {
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(170, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.18);
+        gain.gain.setValueAtTime(0.32, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.2);
+      } else if (type === "empty") {
+        osc.type = "square";
+        osc.frequency.setValueAtTime(950, now);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.06);
+      } else if (type === "reload") {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.setValueAtTime(520, now + 0.12);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.26);
+      } else if (type === "headshot") {
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.14);
+      } else if (type === "explosion") {
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.45);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.47);
+      }
+    }
+
+    // --- بيانات اللعبة ---
+    const catalog = [
+      { id: "gun_revolver", category: "weapon", name: "مسدس كولت الكلاسيكي", desc: "ضرر 28 - سعة 6 طلقات", priceGold: 80, priceWampum: 0, dmg: 28, ammo: 6 },
+      { id: "gun_sniper", category: "weapon", name: "بندقية قنص الغروب", desc: "ضرر 52 - سعة 4 طلقات", priceGold: 0, priceWampum: 12, dmg: 52, ammo: 4 },
+      { id: "outfit_duster", category: "outfit", name: "معطف راعي البقر الجلدي", desc: "يرفع الصحة القصوى إلى 130", priceGold: 90, priceWampum: 0, bonusHp: 30 },
+      { id: "outfit_sheriff", category: "outfit", name: "طقم المارشال الذهبي", desc: "يرفع الصحة القصوى إلى 160", priceGold: 0, priceWampum: 15, bonusHp: 60 },
+      { id: "gadget_pepper", category: "gadget", name: "فلفل حار (x2)", desc: "يهز شاشة الخصم ويصعّب تصويبه", priceGold: 35, priceWampum: 0, gadget: "pepper", qty: 2 },
+      { id: "gadget_dynamite", category: "gadget", name: "إصبع ديناميت", desc: "انفجار يسبب 45 ضرراً مباشراً", priceGold: 50, priceWampum: 0, gadget: "dynamite", qty: 1 },
+      { id: "gadget_lasso", category: "gadget", name: "حبل لاسو", desc: "يقيد الخصم ويمنعه من الإطلاق 3 ثوانٍ", priceGold: 45, priceWampum: 0, gadget: "lasso", qty: 1 }
+    ];
+
+    function getDefaultState() {
+      return {
+        gold: 120,
+        wampum: 15,
+        owned: [],
+        equippedWeapon: { name: "مسدس صدئ", dmg: 22, ammo: 6 },
+        equippedOutfit: { name: "معطف المبتدئ", bonusHp: 0 },
+        gadgets: { pepper: 2, dynamite: 1, lasso: 1 },
+        shitlist: ["بليد العنيف", "ذئب الصحراء", "الضارب السريع"],
+        currentEnemyIndex: 0
+      };
+    }
+
+    function saveGame() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        // تجاهل الخطأ في حال كان التخزين غير متاح في وضع التصفح الخاص
+      }
+    }
+
+    function loadGame() {
+      const base = getDefaultState();
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return base;
+        const parsed = JSON.parse(raw);
+        return {
+          ...base,
+          ...parsed,
+          equippedWeapon: { ...base.equippedWeapon, ...(parsed.equippedWeapon || {}) },
+          equippedOutfit: { ...base.equippedOutfit, ...(parsed.equippedOutfit || {}) },
+          gadgets: { ...base.gadgets, ...(parsed.gadgets || {}) },
+          owned: Array.isArray(parsed.owned) ? parsed.owned : base.owned,
+          shitlist: Array.isArray(parsed.shitlist) && parsed.shitlist.length ? parsed.shitlist : base.shitlist
+        };
+      } catch (e) {
+        return base;
+      }
+    }
+
+    let state = loadGame();
+    let maxPlayerHp = 100 + state.equippedOutfit.bonusHp;
+    let playerHp = maxPlayerHp;
+    let enemyHp = 100;
+    let ammo = state.equippedWeapon.ammo;
+    let isDrawn = false;
+    let canShoot = false;
+    let isReloading = false;
+    let enemyStunned = false;
+    let duelState = "IDLE";
+    let countdownTimer = null;
+    let enemyTimer = null;
+    let stunTimer = null;
+    let aimX = window.innerWidth / 2;
+    let aimY = window.innerHeight / 2;
+
+    const crosshair = document.getElementById("crosshair");
+    const statusBanner = document.getElementById("statusBanner");
+    const floatingMsg = document.getElementById("floatingMsg");
+    const enemyBox = document.getElementById("enemyBox");
+    const enemyHead = document.getElementById("enemyHead");
+    const lassoBadge = document.getElementById("lassoBadge");
+    const pepperOverlay = document.getElementById("pepperOverlay");
+
+    function showFloating(msg) {
+      floatingMsg.textContent = msg;
+      setTimeout(() => { if (floatingMsg.textContent === msg) floatingMsg.textContent = ""; }, 900);
+    }
+
+    function updateUI() {
+      document.getElementById("goldVal").textContent = state.gold;
+      document.getElementById("wampumVal").textContent = state.wampum;
+      document.getElementById("equippedOutfitName").textContent = state.equippedOutfit.name;
+      document.getElementById("equippedGunBadge").textContent = state.equippedWeapon.name;
+      document.getElementById("enemyName").textContent = state.shitlist[state.currentEnemyIndex] || "خصم مجهول";
+
+      const pPct = Math.max(0, Math.min(100, (playerHp / maxPlayerHp) * 100));
+      const ePct = Math.max(0, Math.min(100, enemyHp));
+      document.getElementById("playerHpText").textContent = `${Math.max(0, playerHp)}/${maxPlayerHp}`;
+      document.getElementById("enemyHpText").textContent = `${Math.max(0, enemyHp)}/100`;
+      document.getElementById("playerHpBar").style.width = `${pPct}%`;
+      document.getElementById("enemyHpBar").style.width = `${ePct}%`;
+
+      document.getElementById("ammoText").textContent = `${ammo} / ${state.equippedWeapon.ammo}`;
+      document.getElementById("pepperCount").textContent = state.gadgets.pepper;
+      document.getElementById("dynamiteCount").textContent = state.gadgets.dynamite;
+      document.getElementById("lassoCount").textContent = state.gadgets.lasso;
+
+      crosshair.style.left = `${aimX}px`;
+      crosshair.style.top = `${aimY}px`;
+    }
+
+    function clearTimers() {
+      clearTimeout(countdownTimer);
+      clearInterval(enemyTimer);
+      clearTimeout(stunTimer);
+    }
+
+    function startDuel() {
+      clearTimers();
+      enemyStunned = false;
+      lassoBadge.style.display = "none";
+      maxPlayerHp = 100 + state.equippedOutfit.bonusHp;
+      playerHp = maxPlayerHp;
+      enemyHp = 100;
+      ammo = state.equippedWeapon.ammo;
+      canShoot = false;
+      isReloading = false;
+      duelState = "HOLSTER_WAIT";
+      statusBanner.textContent = "أنزل جوالك للأسفل (في الجراب) للاستعداد";
+      updateUI();
+    }
+
+    function beginCountdown() {
+      if (duelState !== "HOLSTER_WAIT") return;
+      duelState = "COUNTDOWN";
+      statusBanner.textContent = "استعد... لا تسحب قبل الإشارة!";
+      const delay = 1800 + Math.random() * 2400;
+
+      countdownTimer = setTimeout(() => {
+        if (duelState !== "COUNTDOWN") return;
+        duelState = "LIVE";
+        canShoot = true;
+        statusBanner.textContent = "اسحب وأطلق النار الآن!";
+        startEnemyAI();
+      }, delay);
+    }
+
+    function startEnemyAI() {
+      enemyTimer = setInterval(() => {
+        if (duelState !== "LIVE" || enemyStunned) return;
+        if (Math.random() > 0.45) {
+          playSound("shoot");
+          playerHp -= 16;
+          document.body.classList.add("shake");
+          setTimeout(() => document.body.classList.remove("shake"), 240);
+          showFloating("أصابك الخصم! -16");
+          updateUI();
+          if (playerHp <= 0) endDuel(false);
+        }
+      }, 1550);
+    }
+
+    function endDuel(won) {
+      duelState = "ENDED";
+      canShoot = false;
+      clearTimers();
+      if (won) {
+        state.gold += 40;
+        state.wampum += 3;
+        state.currentEnemyIndex = (state.currentEnemyIndex + 1) % state.shitlist.length;
+        saveGame();
+        statusBanner.textContent = "فزت بالمبارزة! (+40 ذهب، +3 وامبوم) وتم الحفظ";
+      } else {
+        statusBanner.textContent = "سقطت في المبارزة! أعد المحاولة";
+      }
+      updateUI();
+    }
+
+    function setHolsterState(drawn) {
+      if (drawn && !isDrawn) {
+        playSound("draw");
+      }
+      isDrawn = drawn;
+      crosshair.style.display = isDrawn ? "block" : "none";
+
+      if (duelState === "HOLSTER_WAIT" && !isDrawn) {
+        beginCountdown();
+      } else if (duelState === "COUNTDOWN" && isDrawn) {
+        clearTimers();
+        duelState = "HOLSTER_WAIT";
+        statusBanner.textContent = "سحبت مبكراً! أنزل الجوال وانتظر الإشارة";
+      } else if (duelState === "LIVE" && isDrawn) {
+        statusBanner.textContent = "";
+      }
+    }
+
+    function reloadGun() {
+      if (isReloading || ammo === state.equippedWeapon.ammo) return;
+      isReloading = true;
+      playSound("reload");
+      statusBanner.textContent = "جاري إعادة التلقيم...";
+      setTimeout(() => {
+        ammo = state.equippedWeapon.ammo;
+        isReloading = false;
+        if (duelState === "LIVE") statusBanner.textContent = "";
+        updateUI();
+      }, 950);
+    }
+
+    function shoot() {
+      if (!isDrawn || !canShoot || isReloading || duelState !== "LIVE") return;
+      if (ammo <= 0) {
+        playSound("empty");
+        statusBanner.textContent = "الرصاص خلص! هز الجوال للتلقيم";
+        return;
+      }
+
+      ammo--;
+      playSound("shoot");
+      updateUI();
+
+      const headRect = enemyHead.getBoundingClientRect();
+      const bodyRect = enemyBox.getBoundingClientRect();
+
+      const hitHead =
+        aimX >= headRect.left - 6 && aimX <= headRect.right + 6 &&
+        aimY >= headRect.top - 6 && aimY <= headRect.bottom + 4;
+
+      const hitBody =
+        aimX >= bodyRect.left && aimX <= bodyRect.right &&
+        aimY >= bodyRect.top && aimY <= bodyRect.bottom;
+
+      if (hitHead) {
+        const dmg = Math.round(state.equippedWeapon.dmg * 1.5);
+        enemyHp -= dmg;
+        playSound("headshot");
+        showFloating(`إصابة رأس (Headshot)! -${dmg}`);
+      } else if (hitBody) {
+        const dmg = state.equippedWeapon.dmg;
+        enemyHp -= dmg;
+        showFloating(`إصابة مباشرة! -${dmg}`);
+      }
+
+      if (hitHead || hitBody) {
+        enemyBox.style.transform = "translateX(-50%) scale(0.93)";
+        setTimeout(() => (enemyBox.style.transform = "translateX(-50%) scale(1)"), 120);
+        updateUI();
+        if (enemyHp <= 0) endDuel(true);
+      }
+    }
+
+    // --- الأدوات التكتيكية مع الحفظ التلقائي ---
+    document.getElementById("pepperBtn").addEventListener("click", () => {
+      if (state.gadgets.pepper <= 0 || duelState !== "LIVE") return;
+      state.gadgets.pepper--;
+      saveGame();
+      pepperOverlay.style.display = "block";
+      document.body.classList.add("shake");
+      showFloating("فلفل حار! عطسة واهتزاز!");
+      updateUI();
+      setTimeout(() => {
+        pepperOverlay.style.display = "none";
+        document.body.classList.remove("shake");
+      }, 2200);
+    });
+
+    document.getElementById("dynamiteBtn").addEventListener("click", () => {
+      if (state.gadgets.dynamite <= 0 || duelState !== "LIVE") return;
+      state.gadgets.dynamite--;
+      saveGame();
+      playSound("explosion");
+      enemyHp -= 45;
+      showFloating("انفجار ديناميت! -45");
+      updateUI();
+      if (enemyHp <= 0) endDuel(true);
+    });
+
+    document.getElementById("lassoBtn").addEventListener("click", () => {
+      if (state.gadgets.lasso <= 0 || duelState !== "LIVE") return;
+      state.gadgets.lasso--;
+      saveGame();
+      enemyStunned = true;
+      lassoBadge.style.display = "inline-block";
+      showFloating("تم تقييد الخصم باللاسو!");
+      updateUI();
+      clearTimeout(stunTimer);
+      stunTimer = setTimeout(() => {
+        enemyStunned = false;
+        lassoBadge.style.display = "none";
+      }, 3000);
+    });
+
+    // --- مستشعرات الحركة ---
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const drawnNow = acc.y > -5.5;
+      setHolsterState(drawnNow);
+
+      if (isDrawn) {
+        aimX += (acc.x || 0) * 3.8;
+        aimY -= ((acc.y || 0) - 5) * 2.8;
+        aimX = Math.max(24, Math.min(window.innerWidth - 24, aimX));
+        aimY = Math.max(95, Math.min(window.innerHeight - 130, aimY));
+        updateUI();
+      }
+
+      const totalForce = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+      if (totalForce > 28 && ammo < state.equippedWeapon.ammo) {
+        reloadGun();
+      }
+    }
+
+    document.getElementById("enableMotionBtn").addEventListener("click", async () => {
+      ensureAudio();
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res !== "granted") {
+          statusBanner.textContent = "تم رفض إذن الحركة في سفاري";
+          return;
+        }
+      }
+      window.addEventListener("devicemotion", handleMotion);
+      startDuel();
+    });
+
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      ensureAudio();
+      startDuel();
+    });
+
+    document.getElementById("arena").addEventListener("pointerdown", (e) => {
+      ensureAudio();
+      aimX = e.clientX;
+      aimY = e.clientY;
+      updateUI();
+      shoot();
+    });
+
+    // --- المتجر وقائمة الأعداء ---
+    function closeModals() {
+      document.getElementById("shopModal").style.display = "none";
+      document.getElementById("shitlistModal").style.display = "none";
+    }
+
+    function renderShop() {
+      const list = document.getElementById("shopList");
+      list.innerHTML = "";
+      catalog.forEach((item) => {
+        const isOwned = state.owned.includes(item.id);
+        const costLabel = item.priceGold > 0 ? `${item.priceGold} ذهب` : `${item.priceWampum} وامبوم`;
+        let btnText = `شراء (${costLabel})`;
+        if (item.category !== "gadget" && isOwned) btnText = "تجهيز";
+
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.innerHTML = `
+          <div>
+            <div class="item-title">${item.name}</div>
+            <div class="item-desc">${item.desc}</div>
+          </div>
+          <button id="btn_${item.id}">${btnText}</button>
+        `;
+        list.appendChild(card);
+
+        document.getElementById(`btn_${item.id}`).addEventListener("click", () => {
+          if (item.category !== "gadget" && isOwned) {
+            if (item.category === "weapon") state.equippedWeapon = { name: item.name, dmg: item.dmg, ammo: item.ammo };
+            if (item.category === "outfit") state.equippedOutfit = { name: item.name, bonusHp: item.bonusHp };
+            saveGame();
+            updateUI();
+            renderShop();
+            return;
+          }
+
+          if (item.priceGold > 0) {
+            if (state.gold < item.priceGold) return showFloating("ذهبك لا يكفي!");
+            state.gold -= item.priceGold;
+          } else {
+            if (state.wampum < item.priceWampum) return showFloating("الوامبوم لا يكفي!");
+            state.wampum -= item.priceWampum;
+          }
+
+          if (item.category === "weapon") {
+            state.owned.push(item.id);
+            state.equippedWeapon = { name: item.name, dmg: item.dmg, ammo: item.ammo };
+          } else if (item.category === "outfit") {
+            state.owned.push(item.id);
+            state.equippedOutfit = { name: item.name, bonusHp: item.bonusHp };
+          } else if (item.category === "gadget") {
+            state.gadgets[item.gadget] += item.qty;
+          }
+
+          saveGame();
+          updateUI();
+          renderShop();
+        });
+      });
+    }
+
+    document.getElementById("resetSaveBtn").addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      state = getDefaultState();
+      startDuel();
+      renderShop();
+      showFloating("تم تصفير الحفظ!");
+    });
+
+    function renderShitlist() {
+      const container = document.getElementById("shitlistContainer");
+      container.innerHTML = state.shitlist
+        .map((name, idx) => `
+          <div class="item-card">
+            <div>
+              <div class="item-title">${name}</div>
+              <div class="item-desc">${idx === state.currentEnemyIndex ? "الخصم الحالي" : "مطلوب للمبارزة"}</div>
+            </div>
+            <button onclick="selectEnemy(${idx})">مبارزة</button>
+          </div>
+        `)
+        .join("");
+    }
+
+    window.selectEnemy = function(idx) {
+      state.currentEnemyIndex = idx;
+      saveGame();
+      closeModals();
+      startDuel();
+    };
+
+    document.getElementById("openShopBtn").addEventListener("click", () => {
+      renderShop();
+      document.getElementById("shopModal").style.display = "flex";
+    });
+
+    document.getElementById("openShitlistBtn").addEventListener("click", () => {
+      renderShitlist();
+      document.getElementById("shitlistModal").style.display = "flex";
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
